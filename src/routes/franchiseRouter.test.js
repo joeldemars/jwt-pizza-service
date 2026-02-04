@@ -65,6 +65,26 @@ test("list user franchises", async () => {
   );
 });
 
+test("delete franchise", async () => {
+  const newFranchise = await createFranchise(
+    createTestUserObject(),
+    testUserAuthToken,
+  );
+  const deleteRes = await request(app)
+    .delete(`/api/franchise/${newFranchise.id}`)
+    .send();
+  const listRes = await request(app)
+    .get(`/api/franchise/${testUser.id}`)
+    .set("Authorization", `Bearer ${testUserAuthToken}`)
+    .send();
+
+  expect(deleteRes.status).toBe(200);
+  expect(deleteRes.body).toMatchObject({ message: "franchise deleted" });
+  expect(listRes.body).not.toEqual(
+    expect.arrayContaining([expect.objectContaining(newFranchise)]),
+  );
+});
+
 function createTestFranchiseObject() {
   return {
     name: Math.random().toString(36).substring(2, 12),
