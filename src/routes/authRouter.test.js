@@ -4,7 +4,7 @@ const app = require("../service");
 let testUser;
 let testUserAuthToken;
 
-beforeAll(async () => {
+beforeEach(async () => {
   testUser = createTestUserObject();
   const registerRes = await request(app).post("/api/auth").send(testUser);
   testUserAuthToken = registerRes.body.token;
@@ -49,6 +49,30 @@ test("login fails with incorrect password", async () => {
 
   expect(loginRes.status).toBe(404);
   expect(loginRes.body).toMatchObject({ message: "unknown user" });
+});
+
+test("logout", async () => {
+  const logoutRes = await request(app)
+    .delete("/api/auth")
+    .set("Authorization", `Bearer ${testUserAuthToken}`)
+    .send();
+
+  expect(logoutRes.status).toBe(200);
+  expect(logoutRes.body).toMatchObject({ message: "logout successful" });
+});
+
+test("logout fails when already logged out", async () => {
+  await request(app)
+    .delete("/api/auth")
+    .set("Authorization", `Bearer ${testUserAuthToken}`)
+    .send();
+  const logoutRes = await request(app)
+    .delete("/api/auth")
+    .set("Authorization", `Bearer ${testUserAuthToken}`)
+    .send();
+
+  expect(logoutRes.status).toBe(401);
+  expect(logoutRes.body).toMatchObject({ message: "unauthorized" });
 });
 
 function expectValidJwt(potentialJwt) {
