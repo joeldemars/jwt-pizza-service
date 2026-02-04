@@ -1,5 +1,9 @@
 const request = require("supertest");
 const app = require("../service");
+const {
+  registerTestUser,
+  createTestUserObject,
+} = require("../testUtils/authUtils");
 
 test("register", async () => {
   const registerRes = await request(app)
@@ -13,7 +17,7 @@ test("register", async () => {
 test("register fails with no password", async () => {
   const invalidUser = createTestUserObject();
   delete invalidUser.password;
-  const registerRes = await request(app).post("/api/auth").send();
+  const registerRes = await request(app).post("/api/auth").send(invalidUser);
 
   expect(registerRes.status).toBe(400);
   expect(registerRes.body).toMatchObject({
@@ -74,22 +78,4 @@ function expectValidJwt(potentialJwt) {
   expect(potentialJwt).toMatch(
     /^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/,
   );
-}
-
-function createTestUserObject() {
-  const name = Math.random().toString(36).substring(2, 12);
-  return {
-    name,
-    email: `${name}@test.com`,
-    password: Math.random().toString(36).substring(2, 12),
-  };
-}
-
-async function registerTestUser() {
-  testUser = createTestUserObject();
-  const registerRes = await request(app).post("/api/auth").send(testUser);
-  return {
-    testUser,
-    testUserAuthToken: registerRes.body.token,
-  };
 }
