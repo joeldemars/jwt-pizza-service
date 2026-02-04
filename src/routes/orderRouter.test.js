@@ -102,7 +102,7 @@ async function getOrders(authToken) {
   return (
     await request(app)
       .get("/api/order")
-      .set("Authorization", `Bearer ${testUserAuthToken}`)
+      .set("Authorization", `Bearer ${authToken}`)
       .send()
   ).body;
 }
