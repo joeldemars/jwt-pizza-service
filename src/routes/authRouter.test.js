@@ -1,15 +1,6 @@
 const request = require("supertest");
 const app = require("../service");
 
-let testUser;
-let testUserAuthToken;
-
-beforeEach(async () => {
-  testUser = createTestUserObject();
-  const registerRes = await request(app).post("/api/auth").send(testUser);
-  testUserAuthToken = registerRes.body.token;
-});
-
 test("register", async () => {
   const registerRes = await request(app)
     .post("/api/auth")
@@ -20,7 +11,7 @@ test("register", async () => {
 });
 
 test("register fails with no password", async () => {
-  const invalidUser = { ...testUser };
+  const invalidUser = createTestUserObject();
   delete invalidUser.password;
   const registerRes = await request(app).post("/api/auth").send();
 
@@ -31,6 +22,7 @@ test("register fails with no password", async () => {
 });
 
 test("login", async () => {
+  const { testUser } = await registerTestUser();
   const loginRes = await request(app).put("/api/auth").send(testUser);
   expect(loginRes.status).toBe(200);
   expectValidJwt(loginRes.body.token);
@@ -41,6 +33,7 @@ test("login", async () => {
 });
 
 test("login fails with incorrect password", async () => {
+  const { testUser } = await registerTestUser();
   const invalidUser = {
     ...testUser,
     password: "invalidPassword",
@@ -52,6 +45,7 @@ test("login fails with incorrect password", async () => {
 });
 
 test("logout", async () => {
+  const { testUserAuthToken } = await registerTestUser();
   const logoutRes = await request(app)
     .delete("/api/auth")
     .set("Authorization", `Bearer ${testUserAuthToken}`)
@@ -62,6 +56,7 @@ test("logout", async () => {
 });
 
 test("logout fails when already logged out", async () => {
+  const { testUserAuthToken } = await registerTestUser();
   await request(app)
     .delete("/api/auth")
     .set("Authorization", `Bearer ${testUserAuthToken}`)
@@ -87,5 +82,14 @@ function createTestUserObject() {
     name,
     email: `${name}@test.com`,
     password: Math.random().toString(36).substring(2, 12),
+  };
+}
+
+async function registerTestUser() {
+  testUser = createTestUserObject();
+  const registerRes = await request(app).post("/api/auth").send(testUser);
+  return {
+    testUser,
+    testUserAuthToken: registerRes.body.token,
   };
 }
