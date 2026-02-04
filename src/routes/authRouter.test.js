@@ -19,6 +19,17 @@ test("register", async () => {
   expectValidJwt(registerRes.body.token);
 });
 
+test("register fails with no password", async () => {
+  const invalidUser = { ...testUser };
+  delete invalidUser.password;
+  const registerRes = await request(app).post("/api/auth").send();
+
+  expect(registerRes.status).toBe(400);
+  expect(registerRes.body).toMatchObject({
+    message: "name, email, and password are required",
+  });
+});
+
 test("login", async () => {
   const loginRes = await request(app).put("/api/auth").send(testUser);
   expect(loginRes.status).toBe(200);
@@ -27,6 +38,17 @@ test("login", async () => {
   const expectedUser = { ...testUser, roles: [{ role: "diner" }] };
   delete expectedUser.password;
   expect(loginRes.body.user).toMatchObject(expectedUser);
+});
+
+test("login fails with incorrect password", async () => {
+  const invalidUser = {
+    ...testUser,
+    password: "invalidPassword",
+  };
+  const loginRes = await request(app).put("/api/auth").send(invalidUser);
+
+  expect(loginRes.status).toBe(404);
+  expect(loginRes.body).toMatchObject({ message: "unknown user" });
 });
 
 function expectValidJwt(potentialJwt) {
