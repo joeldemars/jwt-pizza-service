@@ -85,10 +85,58 @@ test("delete franchise", async () => {
   );
 });
 
+test("create franchise store", async () => {
+  const newStore = createNewStoreObject();
+  const createRes = await request(app)
+    .post(`/api/franchise/${franchise.id}/store`)
+    .set("Authorization", `Bearer ${testUserAuthToken}`)
+    .send(newStore);
+
+  expect(createRes.status).toBe(200);
+  expect(createRes.body.id).toBeDefined();
+  expect(createRes.body.name).toEqual(newStore.name);
+});
+
+test("delete franchise store", async () => {
+  const newStore = (
+    await request(app)
+      .post(`/api/franchise/${franchise.id}/store`)
+      .set("Authorization", `Bearer ${testUserAuthToken}`)
+      .send(createNewStoreObject())
+  ).body;
+  const count = (
+    await request(app)
+      .get(`/api/franchise/${testUser.id}`)
+      .set("Authorization", `Bearer ${testUserAuthToken}`)
+      .send()
+  ).body.find((f) => f.name == franchise.name).stores.length;
+  const deleteRes = await request(app)
+    .delete(`/api/franchise/${franchise.id}/store/${newStore.id}`)
+    .set("Authorization", `Bearer ${testUserAuthToken}`)
+    .send();
+  const newCount = (
+    await request(app)
+      .get(`/api/franchise/${testUser.id}`)
+      .set("Authorization", `Bearer ${testUserAuthToken}`)
+      .send()
+  ).body.find((f) => f.name == franchise.name).stores.length;
+
+  expect(deleteRes.status).toBe(200);
+  expect(deleteRes.body).toMatchObject({ message: "store deleted" });
+  expect(newCount).toBe(count - 1);
+});
+
 function createTestFranchiseObject() {
   return {
     name: Math.random().toString(36).substring(2, 12),
     admins: [{ email: testUser.email }],
+  };
+}
+
+function createNewStoreObject() {
+  return {
+    franchiseId: franchise.id,
+    name: Math.random().toString(36).substring(2, 12),
   };
 }
 
