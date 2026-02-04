@@ -5,6 +5,11 @@ const {
   createTestUserObject,
   registerTestUser,
 } = require("../testUtils/authUtils");
+const {
+  createFranchise,
+  createTestFranchiseObject,
+  createNewStoreObject,
+} = require("../testUtils/franchiseUtils");
 
 let testUser;
 let testUserAuthToken;
@@ -19,7 +24,10 @@ beforeAll(async () => {
   testUserAuthToken = (await request(app).put("/api/auth").send(testUser)).body
     .token;
   franchise = (
-    await createFranchise(createTestFranchiseObject(), testUserAuthToken)
+    await createFranchise(
+      createTestFranchiseObject(testUser),
+      testUserAuthToken,
+    )
   ).body;
 });
 
@@ -33,7 +41,7 @@ test("list all franchises", async () => {
 });
 
 test("create franchise", async () => {
-  const franchise = createTestFranchiseObject();
+  const franchise = createTestFranchiseObject(testUser);
   const createRes = await createFranchise(franchise, testUserAuthToken);
 
   expect(createRes.status).toBe(200);
@@ -43,7 +51,7 @@ test("create franchise", async () => {
 
 test("create franchise fails when user is not admin", async () => {
   let { testUserAuthToken } = await registerTestUser();
-  const franchise = createTestFranchiseObject();
+  const franchise = createTestFranchiseObject(testUser);
   franchise.admins = [{ email: testUser.email }];
   const createRes = await createFranchise(franchise, testUserAuthToken);
 
@@ -86,7 +94,7 @@ test("delete franchise", async () => {
 });
 
 test("create franchise store", async () => {
-  const newStore = createNewStoreObject();
+  const newStore = createNewStoreObject(franchise);
   const createRes = await request(app)
     .post(`/api/franchise/${franchise.id}/store`)
     .set("Authorization", `Bearer ${testUserAuthToken}`)
@@ -102,7 +110,7 @@ test("delete franchise store", async () => {
     await request(app)
       .post(`/api/franchise/${franchise.id}/store`)
       .set("Authorization", `Bearer ${testUserAuthToken}`)
-      .send(createNewStoreObject())
+      .send(createNewStoreObject(franchise))
   ).body;
   const count = (
     await request(app)
@@ -125,24 +133,3 @@ test("delete franchise store", async () => {
   expect(deleteRes.body).toMatchObject({ message: "store deleted" });
   expect(newCount).toBe(count - 1);
 });
-
-function createTestFranchiseObject() {
-  return {
-    name: Math.random().toString(36).substring(2, 12),
-    admins: [{ email: testUser.email }],
-  };
-}
-
-function createNewStoreObject() {
-  return {
-    franchiseId: franchise.id,
-    name: Math.random().toString(36).substring(2, 12),
-  };
-}
-
-async function createFranchise(franchise, authToken) {
-  return await request(app)
-    .post("/api/franchise")
-    .set("Authorization", `Bearer ${authToken}`)
-    .send(franchise);
-}
