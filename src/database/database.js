@@ -79,6 +79,17 @@ class DB {
       connection.end();
     }
   }
+  
+  async deleteUser(userId) {
+    const connection = await this.getConnection();
+    try {
+      await this.query(connection, `DELETE FROM user WHERE id=?`, [userId]);
+      await this.query(connection, `DELETE FROM userRole WHERE userId=?`, [userId]);
+      await this.query(connection, `DELETE FROM auth WHERE userId=?`, [userId]);
+    } finally {
+      connection.end();
+    }
+  }
 
   async getUser(email, password) {
     const connection = await this.getConnection();
