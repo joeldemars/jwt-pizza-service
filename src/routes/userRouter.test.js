@@ -8,7 +8,7 @@ test('list users unauthorized', async () => {
 });
 
 test('list users', async () => {
-  const { testUser, testUserAuthToken } = await registerTestUser();
+  const { testUserAuthToken } = await registerTestUser();
   const listUsersRes = await request(app)
     .get('/api/user')
     .set('Authorization', 'Bearer ' + testUserAuthToken);
@@ -36,7 +36,7 @@ test('list self', async () => {
 
 test('pagination', async () => {
   await registerTestUser();
-  const { testUser, testUserAuthToken } = await registerTestUser();
+  const { testUserAuthToken } = await registerTestUser();
   const page1Res = await request(app)
     .get('/api/user?page=1&limit=1')
     .set('Authorization', 'Bearer ' + testUserAuthToken);
