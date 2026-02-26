@@ -12,7 +12,7 @@ userRouter.docs = [
     requiresAuth: true,
     description: 'Gets a list of users',
     example: `curl -X GET localhost:3000/api/user -H 'Authorization: Bearer tttttt'`,
-    response: { users: [{ id: 1, name: '常用名字', email: 'a@jwt.com', roles: [{ role: 'admin' }] }] },
+    response: { users: [{ id: 1, name: '常用名字', email: 'a@jwt.com', roles: [{ role: 'admin' }] }], more: false },
   },
   {
     method: 'GET',
@@ -37,9 +37,8 @@ userRouter.get(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    res.json({
-      users: []
-    });
+    const [users, more] = await DB.getUsers(req.query.page, req.query.limit, req.query.name);
+    res.json({ users, more });
   })
 );
 
