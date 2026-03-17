@@ -2,48 +2,28 @@ const os = require("os");
 const config = require("./config").metrics;
 
 // Metrics stored in memory
-const requests = {};
-const activeUsers = {};
-
-// TODO:
-// HTTP request: method, time
-// Active users:
-// Auth attempts: successful
-// CPU/Memory
-// Pizzas: success, price, latency
+let queue = [];
+const activeUsers = new Map();
 
 // Middleware to track requests
 function requestTracker(req, res, next) {
-  // TODO: handle/record metrics
-  const endpoint = `[${req.method}] ${req.path}`;
-  requests[endpoint] = (requests[endpoint] || 0) + 1;
+  const method = req.method;
   const start = Date.now();
   res.on("finish", () => {
     const latency = Date.now() - start;
+    createMetric("request", latency, "ms", "histogram", "asInt", { method });
   });
   next();
 }
 
 // This will periodically send metrics to Grafana
 setInterval(() => {
-  // TODO: collect/send all requests
-  const metrics = [];
-  // Object.keys(requests).forEach((endpoint) => {
-  //   metrics.push(
-  //     createMetric("requests", requests[endpoint], "1", "sum", "asInt", {
-  //       endpoint,
-  //     }),
-  //   );
-  // });
+  createMetric("cpu", getCpuUsage(), "%", "gauge", "asDouble", {});
+  createMetric("memory", getMemoryUsage(), "%", "gauge", "asDouble", {});
+  createMetric("users", getActiveUsers(), "1", "gauge", "asInt", {});
 
-  metrics.push(
-    createMetric("cpu", getCpuUsage(), "%", "gauge", "asDouble", {}),
-  );
-  metrics.push(
-    createMetric("memory", getMemoryUsage(), "%", "gauge", "asDouble", {}),
-  );
-
-  sendMetricToGrafana(metrics);
+  sendMetricToGrafana(queue);
+  queue = [];
 }, 10000);
 
 function createMetric(
@@ -83,14 +63,12 @@ function createMetric(
     metric[metricType].isMonotonic = true;
   }
 
-  return metric;
+  queue.push(metric);
 }
 
 function sendMetricToGrafana(metrics) {
   const body = { resourceMetrics: [{ scopeMetrics: [{ metrics }] }] };
 
-  console.log(JSON.stringify(body));
-  
   fetch(`${config.endpointUrl}`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -122,16 +100,33 @@ function getMemoryUsage() {
   return memoryUsage.toFixed(2);
 }
 
-function pizzaPurchase(success, latency, price) {
-  // TODO
+function getActiveUsers() {
+  let users = 0;
+  const time = Date.now();
+  for (let user in activeUsers) {
+    if (activeUsers.get(user) - time > 5 * 60 * 1000) {
+      activeUsers.delete(user);
+    } else {
+      users++;
+    }
+  }
+  return users;
 }
 
-function authenticationAttempt(success) {
-  // TODO
+function recordPurchase(success, latency, price) {
+  createMetric("purchase", 1, "1", "histogram", "asInt", {
+    success,
+    latency,
+    price,
+  });
 }
 
-function userActive(userId) {
-  // TODO
+function recordAuthAttempt(success) {
+  createMetric("auth", 1, "1", "histogram", "asInt", {});
 }
 
-module.exports = { requestTracker };
+function recordUserActive(userId) {
+  activeUsers.set(userId, Date.now());
+}
+
+module.exports = { requestTracker, recordPurchase, recordAuthAttempt, recordUserActive };
