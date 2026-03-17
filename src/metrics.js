@@ -18,7 +18,7 @@ function requestTracker(req, res, next) {
   const endpoint = `[${req.method}] ${req.path}`;
   requests[endpoint] = (requests[endpoint] || 0) + 1;
   const start = Date.now();
-  res.on('finish', () => {
+  res.on("finish", () => {
     const latency = Date.now() - start;
   });
   next();
@@ -26,25 +26,21 @@ function requestTracker(req, res, next) {
 
 // This will periodically send metrics to Grafana
 setInterval(() => {
-  // TODO
+  // TODO: collect/send all requests
   const metrics = [];
-  Object.keys(requests).forEach((endpoint) => {
-    metrics.push(
-      createMetric("requests", requests[endpoint], "1", "sum", "asInt", {
-        endpoint,
-      }),
-    );
-  });
+  // Object.keys(requests).forEach((endpoint) => {
+  //   metrics.push(
+  //     createMetric("requests", requests[endpoint], "1", "sum", "asInt", {
+  //       endpoint,
+  //     }),
+  //   );
+  // });
 
   metrics.push(
-    createMetric(
-      "greetingChange",
-      greetingChangedCount,
-      "1",
-      "sum",
-      "asInt",
-      {},
-    ),
+    createMetric("cpu", getCpuUsage(), "%", "gauge", "asDouble", {}),
+  );
+  metrics.push(
+    createMetric("memory", getMemoryUsage(), "%", "gauge", "asDouble", {}),
   );
 
   sendMetricToGrafana(metrics);
@@ -91,18 +87,10 @@ function createMetric(
 }
 
 function sendMetricToGrafana(metrics) {
-  const body = {
-    resourceMetrics: [
-      {
-        scopeMetrics: [
-          {
-            metrics,
-          },
-        ],
-      },
-    ],
-  };
+  const body = { resourceMetrics: [{ scopeMetrics: [{ metrics }] }] };
 
+  console.log(JSON.stringify(body));
+  
   fetch(`${config.endpointUrl}`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -121,12 +109,12 @@ function sendMetricToGrafana(metrics) {
     });
 }
 
-function getCpuUsagePercentage() {
+function getCpuUsage() {
   const cpuUsage = os.loadavg()[0] / os.cpus().length;
   return cpuUsage.toFixed(2) * 100;
 }
 
-function getMemoryUsagePercentage() {
+function getMemoryUsage() {
   const totalMemory = os.totalmem();
   const freeMemory = os.freemem();
   const usedMemory = totalMemory - freeMemory;
