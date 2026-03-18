@@ -1,5 +1,6 @@
 const express = require('express');
 const config = require('../config.js');
+const metrics = require('../metrics.js');
 const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
@@ -79,6 +80,8 @@ orderRouter.post(
   asyncHandler(async (req, res) => {
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
+    const price = order.items.reduce((total, item) => total + item.price, 0);
+    const start = Date.now();
     const r = await fetch(`${config.factory.url}/api/order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
@@ -87,8 +90,10 @@ orderRouter.post(
     const j = await r.json();
     if (r.ok) {
       res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
+      metrics.recordPurchase(true, Date.now() - start, price);
     } else {
       res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: j.reportUrl });
+      metrics.recordPurchase(false, Date.now() - start, 0);
     }
   })
 );

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config.js');
 const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
+const metrics = require('../metrics.js');
 
 const authRouter = express.Router();
 
@@ -52,6 +53,7 @@ authRouter.authenticateToken = (req, res, next) => {
   if (!req.user) {
     return res.status(401).send({ message: 'unauthorized' });
   }
+  metrics.recordUserActive(req.user.id);
   next();
 };
 
@@ -61,10 +63,12 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
+      metrics.recordAuthAttempt(false);
       return res.status(400).json({ message: 'name, email, and password are required' });
     }
     const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
     const auth = await setAuth(user);
+    metrics.recordAuthAttempt(true);
     res.json({ user: user, token: auth });
   })
 );
@@ -73,10 +77,16 @@ authRouter.post(
 authRouter.put(
   '/',
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    const user = await DB.getUser(email, password);
-    const auth = await setAuth(user);
-    res.json({ user: user, token: auth });
+    try {
+      const { email, password } = req.body;
+      const user = await DB.getUser(email, password);
+      metrics.recordAuthAttempt(true);
+      const auth = await setAuth(user);
+      res.json({ user: user, token: auth });
+    } catch (error) {
+      metrics.recordAuthAttempt(false);
+      throw error;
+    }
   })
 );
 

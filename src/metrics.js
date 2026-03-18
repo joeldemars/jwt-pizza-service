@@ -3,28 +3,37 @@ const config = require("./config").metrics;
 
 // Metrics stored in memory
 let queue = [];
+let authAttempts = 0;
+let requests = 0;
+let revenue = 0;
+let purchases = 0;
 const activeUsers = new Map();
 
 // Middleware to track requests
 function requestTracker(req, res, next) {
   const method = req.method;
   const start = Date.now();
+  requests++;
   res.on("finish", () => {
     const latency = Date.now() - start;
-    createMetric("request", latency, "ms", "histogram", "asInt", { method });
+    createMetric("request", requests, "1", "sum", "asInt", { method });
+    createMetric("request_duration", latency, "ms", "gauge", "asInt", {});
   });
   next();
 }
 
 // This will periodically send metrics to Grafana
-setInterval(() => {
-  createMetric("cpu", getCpuUsage(), "%", "gauge", "asDouble", {});
-  createMetric("memory", getMemoryUsage(), "%", "gauge", "asDouble", {});
-  createMetric("users", getActiveUsers(), "1", "gauge", "asInt", {});
+function init() {
+  setInterval(() => {
+    createMetric("cpu", getCpuUsage(), "%", "gauge", "asDouble", {});
+    createMetric("memory", getMemoryUsage(), "%", "gauge", "asDouble", {});
+    createMetric("users", getActiveUsers(), "1", "gauge", "asInt", {});
 
-  sendMetricToGrafana(queue);
-  queue = [];
-}, 10000);
+    const metrics = queue;
+    queue = [];
+    sendMetricToGrafana(metrics);
+  }, 10000);
+}
 
 function createMetric(
   metricName,
@@ -103,8 +112,8 @@ function getMemoryUsage() {
 function getActiveUsers() {
   let users = 0;
   const time = Date.now();
-  for (let user in activeUsers) {
-    if (activeUsers.get(user) - time > 5 * 60 * 1000) {
+  for (let [user, lastSeen] of activeUsers.entries()) {
+    if (time - lastSeen > 5 * 60 * 1000) {
       activeUsers.delete(user);
     } else {
       users++;
@@ -114,19 +123,32 @@ function getActiveUsers() {
 }
 
 function recordPurchase(success, latency, price) {
-  createMetric("purchase", 1, "1", "histogram", "asInt", {
-    success,
-    latency,
-    price,
+  purchases++;
+  createMetric("purchase", purchases, "1", "sum", "asInt", {
+    status: success ? "Successful" : "Failed",
   });
+  createMetric("pizza_latency", latency, "ms", "gauge", "asInt", {});
+  if (success) {
+    revenue += price;
+    createMetric("revenue", revenue, "BTC", "sum", "asDouble", {});
+  }
 }
 
 function recordAuthAttempt(success) {
-  createMetric("auth", 1, "1", "histogram", "asInt", {});
+  authAttempts++;
+  createMetric("auth", authAttempts, "1", "sum", "asInt", {
+    success: String(success),
+  });
 }
 
 function recordUserActive(userId) {
   activeUsers.set(userId, Date.now());
 }
 
-module.exports = { requestTracker, recordPurchase, recordAuthAttempt, recordUserActive };
+module.exports = {
+  init,
+  requestTracker,
+  recordPurchase,
+  recordAuthAttempt,
+  recordUserActive,
+};
