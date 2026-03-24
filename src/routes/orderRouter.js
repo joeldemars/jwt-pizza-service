@@ -1,6 +1,7 @@
 const express = require('express');
 const config = require('../config.js');
 const metrics = require('../metrics.js');
+const logger = require('../logger.js');
 const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
@@ -88,6 +89,12 @@ orderRouter.post(
       body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
     });
     const j = await r.json();
+    const send = res.send;
+    res.send = (resBody) => {
+      logger.factoryRequest(orderReq, resBody);
+      res.send = send;
+      return res.send(resBody);
+    };
     if (r.ok) {
       res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
       metrics.recordPurchase(true, Date.now() - start, price);
